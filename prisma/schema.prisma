@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  FREE
+  STARTER
+  GROWTH
+  BUSINESS
+}
+
+enum TenantStatus {
+  ACTIVE
+  TRIAL
+  SUSPENDED
+  CHURNED
+}
+
+enum Platform {
+  WOOCOMMERCE
+  SHOPIFY
+}
+
+enum ShopRole {
+  SOURCE
+  TARGET
+}
+
+enum ShopStatus {
+  ACTIVE
+  ERROR
+  INACTIVE
+}
+
+enum TransferStatus {
+  PENDING
+  RUNNING
+  DONE
+  ERROR
+  PARTIAL
+}
+
+enum LogLevel {
+  INFO
+  WARN
+  ERROR
+}
+
+model Tenant {
+  id        String       @id @default(uuid())
+  email     String       @unique
+  name      String
+  passwordHash String?
+  isAdmin   Boolean      @default(false)
+  plan      Plan         @default(FREE)
+  status    TenantStatus @default(ACTIVE)
+  quotaUsed Int          @default(0)
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String? @unique
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  shops     Shop[]
+  transfers Transfer[]
+}
+
+model Shop {
+  id        String     @id @default(uuid())
+  tenantId  String
+  name      String
+  passwordHash String?
+  isAdmin   Boolean      @default(false)
+  url       String
+  platform  Platform
+  role      ShopRole
+  lang      String?
+  apiKey    String
+  apiSecret String?
+  status    ShopStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+
+  tenant            Tenant     @relation(fields: [tenantId], references: [id])
+  transfersAsSource Transfer[] @relation("SourceShop")
+  transfersAsTarget Transfer[] @relation("TargetShop")
+}
+
+model Transfer {
+  id             String         @id @default(uuid())
+  tenantId       String
+  sourceShopId   String
+  targetShopId   String
+  categoryId     String?
+  categoryLabel  String?
+  status         TransferStatus @default(PENDING)
+  totalProducts  Int            @default(0)
+  doneProducts   Int            @default(0)
+  failedProducts Int            @default(0)
+  tokensUsed     Int            @default(0) // tokens Claude consommés (input + output cumulés) pour ce transfert
+  options        Json           @default("{}")
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime       @default(now())
+
+  tenant     Tenant        @relation(fields: [tenantId], references: [id])
+  sourceShop Shop          @relation("SourceShop", fields: [sourceShopId], references: [id])
+  targetShop Shop          @relation("TargetShop", fields: [targetShopId], references: [id])
+  logs       TransferLog[]
+}
+
+model TransferLog {
+  id         String   @id @default(uuid())
+  transferId String
+  level      LogLevel @default(INFO)
+  message    String
+  createdAt  DateTime @default(now())
+
+  transfer Transfer @relation(fields: [transferId], references: [id])
+}
+
+model ProductHash {
+  id            String   @id @default(uuid())
+  sourceShopId  String
+  sku           String
+  imageHash     String
+  transferredAt DateTime @default(now())
+
+  @@unique([sourceShopId, imageHash])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  tenantId  String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+enum BlogStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model BlogPost {
+  id              String     @id @default(uuid())
+  slug            String     @unique
+  title           String
+  excerpt         String     @default("")
+  coverImageUrl   String?
+  coverImageAlt   String?
+  blocks          Json       @default("[]")
+  videos          Json       @default("[]")
+  faqItems        Json       @default("[]")
+  tags            String[]   @default([])
+  socialDrafts    Json       @default("{}")
+  ctaButtonLabel  String     @default("Essayer gratuitement")
+  ctaButtonUrl    String     @default("/signup")
+  channelBlog            Boolean  @default(true)
+  channelWebhookEnabled  Boolean  @default(false)
+  socialWebhookUrl       String?
+  distributionWebhookUrl String?
+  metaTitle       String?
+  metaDescription String?
+  status          BlogStatus @default(DRAFT)
+  publishedAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}

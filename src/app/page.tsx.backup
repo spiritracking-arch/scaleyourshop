@@ -1,0 +1,641 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { LOGO_DATA_URI } from "@/lib/logo";
+
+// ── Responsive overrides (inline-styles codebase, so media queries live here) ──
+function ResponsiveStyles() {
+  return (
+    <style>{`
+      @media (max-width: 860px) {
+        .nav-links-desktop { display: none !important; }
+        .nav-hamburger { display: flex !important; }
+        .hero-grid { grid-template-columns: 1fr !important; gap: 40px !important; text-align: left; }
+        .feature-row { grid-template-columns: 1fr !important; direction: ltr !important; gap: 24px !important; }
+        .pricing-grid { grid-template-columns: 1fr !important; }
+        .social-proof-row { justify-content: flex-start !important; }
+        .nav-bar { padding: 0 20px !important; }
+        section { padding-left: 20px !important; padding-right: 20px !important; }
+      }
+      @media (max-width: 480px) {
+        .stat-row { gap: 16px !important; }
+        .social-proof-row { gap: 24px !important; }
+        .social-proof-logos { gap: 16px !important; }
+        .social-proof-divider { display: none !important; }
+      }
+    `}</style>
+  );
+}
+
+// ── Fade on scroll ────────────────────────────────────────────────────────────
+function FadeIn({ children, delay = 0, style = {} }: { children: React.ReactNode; delay?: number; style?: React.CSSProperties }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [vis, setVis] = useState(false);
+  useEffect(() => {
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) setVis(true); }, { threshold: 0.12 });
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <div ref={ref} style={{
+      opacity: vis ? 1 : 0,
+      transform: vis ? "translateY(0)" : "translateY(20px)",
+      transition: `opacity 500ms ease ${delay}ms, transform 500ms ease ${delay}ms`,
+      ...style,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+// ── Data ──────────────────────────────────────────────────────────────────────
+const FEATURES = [
+  {
+    tag: "Reformulation géo",
+    title: "Reformulation native, jamais de traduction machine !",
+    desc: "Chaque titre et description est réécrit nativement dans la langue cible par IA et adapté au marché local de ton e-commerce pour chaque pays. Pas de Google Translate ou DeePL !.",
+    visual: [
+      { lang: "🇫🇷", text: "Montre chronographe homme acier" },
+      { lang: "🇩🇪", text: "Herren Chronograph Edelstahl Uhr" },
+      { lang: "🇪🇸", text: "Reloj cronógrafo para hombre en acero" },
+      { lang: "🇮🇹", text: "Orologio cronografo da uomo in acciaio" },
+    ],
+  },
+  {
+    tag: "Variantes",
+    title: "Chaque variante avec son image dédiée",
+    desc: "Chaque option de variante (couleur, matière, taille) reçoit son image propre, convertie en WebP optimisé. Un niveau de détail que personne d'autre n'automatise.",
+    visual: [
+      { label: "Leather Black Silver", img: "◼" },
+      { label: "Mesh Silver Gold", img: "⬜" },
+      { label: "Leather Rose Blue", img: "🔵" },
+      { label: "Mesh Black Blue", img: "⬛" },
+    ],
+    isVariant: true,
+  },
+  {
+    tag: "Multi-boutique",
+    title: "1 source → N boutiques en simultané",
+    desc: "Un seul catalogue source, autant de boutiques cibles que vous voulez. WooCommerce to WooCommerce, Shopify to Shopify, Woocommerce to Shopify, Shopify to Woocommerce. (Support Shopify en cours d'intégration)",
+    visual: null as null,
+    isFlow: true,
+  },
+];
+
+const PLANS = [
+  {
+    id: "starter",
+    name: "Starter",
+    desc: "Lancez-vous sur 1 nouveau marché, une bonne fois pour toutes",
+    price: { once: 49 },
+    type: "once",
+    popular: false,
+    features: [
+      { ok: true,  text: "100 produits (transfert unique)" },
+      { ok: true,  text: "3 boutiques cibles" },
+      { ok: true,  text: "Reformulation native par IA" },
+      { ok: true,  text: "Images WebP optimisées" },
+      { ok: true,  text: "Variantes avec images dédiées" },
+      { ok: true,  text: "22 langues EU" },
+      { ok: false, text: "Transferts illimités" },
+      { ok: false, text: "Synchronisation automatique" },
+      { ok: false, text: "Accès API" },
+    ],
+    cta: "Commencer — 49€",
+    note: "Paiement unique · Quota utilisable en une ou plusieurs sessions",
+  },
+  {
+    id: "growth",
+    name: "Growth",
+    desc: "Pour les marchands qui scalent sérieusement",
+    price: { monthly: 99 },
+    type: "monthly",
+    popular: true,
+    features: [
+      { ok: true,  text: "500 produits / mois" },
+      { ok: true,  text: "10 boutiques cibles" },
+      { ok: true,  text: "Reformulation native par IA" },
+      { ok: true,  text: "Images WebP optimisées" },
+      { ok: true,  text: "Variantes avec images dédiées" },
+      { ok: true,  text: "22 langues EU" },
+      { ok: true,  text: "Transferts illimités" },
+      { ok: false, text: "Synchronisation automatique" },
+      { ok: false, text: "Accès API" },
+    ],
+    note: "Sans engagement · Résiliable à tout moment",
+  },
+  {
+    id: "business",
+    name: "Business",
+    desc: "Pour les agences et multi-marques",
+    price: { monthly: 299 },
+    type: "monthly",
+    popular: false,
+    features: [
+      { ok: true, text: "5 000 produits / mois" },
+      { ok: true, text: "Boutiques illimitées" },
+      { ok: true, text: "Reformulation native par IA" },
+      { ok: true, text: "Images WebP optimisées" },
+      { ok: true, text: "Variantes avec images dédiées" },
+      { ok: true, text: "22 langues EU" },
+      { ok: true, text: "Transferts illimités" },
+      { ok: true, text: "Synchronisation automatique (bientôt)" },
+      { ok: true, text: "Accès API (bientôt)" },
+    ],
+    note: "Onboarding personnalisé inclus · Sans engagement",
+  },
+];
+
+const FAQS = [
+  { q: "Quelles plateformes sont supportées ?", a: "WooCommerce et Shopify, en source comme en cible — dans les deux sens et toutes les combinaisons (WooCommerce vers Shopify, Shopify vers WooCommerce, etc.)." },
+  { q: "Comment fonctionne la localisation ?", a: "Une IA réécrit chaque titre et description nativement dans la langue cible, en restant fidèle au contenu d'origine — ce n'est pas une traduction littérale (Google Translate, DeepL), mais le ton et le registre sont adaptés pour sonner naturel dans chaque marché." },
+  { q: "Mes clés API sont-elles sécurisées ?", a: "Vos clés sont chiffrées (AES-256) et utilisées uniquement pendant le transfert. Elles ne sont jamais stockées en clair sur nos serveurs." },
+  { q: "Puis-je tester avant d'acheter ?", a: "Oui — le plan FREE vous permet de transférer jusqu'à 5 produits gratuitement et sans carte bancaire. Un mode aperçu (dry run) est aussi disponible pour simuler un transfert complet avant de l'exécuter." },
+  { q: "Que se passe-t-il si un produit échoue ?", a: "Chaque produit est traité indépendamment. En cas d'échec partiel, vous recevez un rapport détaillé et pouvez relancer uniquement les produits concernés." },
+  { q: "Peut-on transférer un catalogue entier ?", a: "Oui. Le plan Business permet des transferts illimités. Vous pouvez aussi filtrer par catégorie avant de lancer le transfert." },
+];
+
+// ── Components ────────────────────────────────────────────────────────────────
+function Nav({ scrolled }: { scrolled: boolean }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const NAV_LINKS: [string, string][] = [["Fonctionnalités", "#features"], ["Localisation smart", "/localisation-smart"], ["Tarifs", "#pricing"], ["FAQ", "#faq"]];
+
+  return (
+    <nav className="nav-bar" style={{
+      position: "fixed", top: 0, left: 0, right: 0, zIndex: 9998,
+      background: scrolled || menuOpen ? "rgba(255,255,255,0.97)" : "transparent",
+      backdropFilter: scrolled || menuOpen ? "blur(10px)" : "none",
+      borderBottom: scrolled || menuOpen ? "1px solid #e5e5e5" : "1px solid transparent",
+      padding: "0 40px", height: 64,
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      transition: "all 250ms ease",
+    }}>
+      <Link href="/" aria-label="ScaleYourShop — Accueil" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
+        <img src={LOGO_DATA_URI} alt="ScaleYourShop" style={{ width: 42, height: 42, borderRadius: 9, objectFit: "cover" }} />
+        <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-0.5px", color: "#1a1a1a" }}>Scale<span style={{ color: "#FA0C00" }}>Your</span>Shop</span>
+      </Link>
+
+      <div className="nav-links-desktop" style={{ display: "flex", alignItems: "center", gap: 32 }}>
+        {NAV_LINKS.map(([label, href]) => (
+          <a key={label} href={href} style={{ fontSize: 14, color: "#444", textDecoration: "none", fontWeight: 500 }}>{label}</a>
+        ))}
+        <Link href="/login" style={{ fontSize: 14, color: "#444", textDecoration: "none", fontWeight: 500 }}>
+          Connexion
+        </Link>
+        <Link href="/signup" style={{ padding: "9px 22px", borderRadius: 999, border: "none", background: "#1a1a1a", color: "white", fontWeight: 600, fontSize: 14, cursor: "pointer", textDecoration: "none" }}>
+          Essai gratuit
+        </Link>
+      </div>
+
+      <button
+        className="nav-hamburger"
+        onClick={() => setMenuOpen(!menuOpen)}
+        aria-label="Menu"
+        style={{ display: "none", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, border: "1px solid #e5e5e5", background: "white", fontSize: 18, cursor: "pointer" }}
+      >
+        {menuOpen ? "✕" : "☰"}
+      </button>
+
+      {menuOpen && (
+        <div style={{
+          position: "fixed", top: 64, left: 0, right: 0, height: "calc(100dvh - 64px)", zIndex: 9999,
+          background: "white", padding: "24px 24px", display: "flex", flexDirection: "column", gap: 4,
+          overflowY: "auto",
+        }}>
+          {NAV_LINKS.map(([label, href]) => (
+            <a key={label} href={href} onClick={() => setMenuOpen(false)} style={{ padding: "14px 4px", fontSize: 16, color: "#1a1a1a", textDecoration: "none", fontWeight: 600, borderBottom: "1px solid #f5f5f5" }}>{label}</a>
+          ))}
+          <Link href="/login" onClick={() => setMenuOpen(false)} style={{ padding: "14px 4px", fontSize: 16, color: "#1a1a1a", textDecoration: "none", fontWeight: 600, borderBottom: "1px solid #f5f5f5" }}>
+            Connexion
+          </Link>
+          <div style={{ textAlign: "center", marginTop: 16 }}>
+            <Link href="/signup" onClick={() => setMenuOpen(false)} style={{ display: "inline-block", padding: "14px 40px", borderRadius: 999, border: "none", background: "#1a1a1a", color: "white", fontWeight: 700, fontSize: 15, cursor: "pointer", textDecoration: "none" }}>
+              Essai gratuit
+            </Link>
+          </div>
+        </div>
+      )}
+    </nav>
+  );
+}
+
+function Hero() {
+  const [tick, setTick] = useState(0);
+  useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 2000); return () => clearInterval(t); }, []);
+  const langs = ["🇫🇷 Français", "🇩🇪 Deutsch", "🇪🇸 Español", "🇮🇹 Italiano", "🇳🇱 Nederlands", "🇵🇹 Português"];
+  const active = tick % langs.length;
+
+  return (
+    <section style={{ minHeight: "100dvh", display: "flex", alignItems: "center", background: "#fafafa", paddingTop: 64 }}>
+      <div className="hero-grid" style={{ maxWidth: 1200, margin: "0 auto", padding: "0 40px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center", width: "100%", boxSizing: "border-box" }}>
+
+        {/* Left */}
+        <div>
+          <div style={{ display: "inline-block", padding: "5px 14px", borderRadius: 999, background: "#f0f0f0", fontSize: 12, fontWeight: 700, color: "#666", letterSpacing: "0.8px", marginBottom: 24 }}>
+            MULTI-BOUTIQUE · INTERNATIONAL
+          </div>
+          <h1 style={{ fontSize: "clamp(2.4rem,7vw,4.2rem)", fontWeight: 900, lineHeight: 1.08, letterSpacing: "-2px", color: "#1a1a1a", margin: "0 0 28px" }}>
+            Votre catalogue.<br />
+            22 pays.<br />
+            <span style={{ color: "#888" }}>En 1 clic.</span>
+          </h1>
+          <p style={{ fontSize: 17, color: "#666", lineHeight: 1.7, maxWidth: "50ch", marginBottom: 40 }}>
+            Connectez WooCommerce une fois : chaque nouveau marché se déploie ensuite en un clic, avec une reformulation native par IA et des images optimisées.
+          </p>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 40 }}>
+            <Link href="/signup" style={{ padding: "14px 32px", borderRadius: 999, border: "none", background: "#1a1a1a", color: "white", fontWeight: 700, fontSize: 15, cursor: "pointer", textDecoration: "none", display: "inline-block" }}>
+              Commencer gratuitement
+            </Link>
+            <a href="#features" style={{ padding: "14px 32px", borderRadius: 999, border: "2px solid #e0e0e0", background: "white", color: "#1a1a1a", fontWeight: 600, fontSize: 15, cursor: "pointer", textDecoration: "none", display: "inline-block" }}>
+              Découvrir les fonctionnalités →
+            </a>
+          </div>
+          <p style={{ fontSize: 12, color: "#bbb", letterSpacing: "0.2px" }}>Sans carte bancaire · Aperçu gratuit illimité</p>
+        </div>
+
+        {/* Right — animated transfer preview */}
+        <div style={{ background: "white", borderRadius: 20, padding: 28, border: "1px solid #e5e5e5", boxShadow: "0 8px 40px rgba(0,0,0,0.08)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#999", letterSpacing: "0.8px" }}>TRANSFERT EN COURS</span>
+            <span style={{ fontSize: 12, color: "#bbb" }}>3/6 boutiques</span>
+          </div>
+          <div style={{ fontSize: 11, color: "#ccc", marginBottom: 14 }}>Démo en direct — simulation d'un transfert vers 6 boutiques cibles</div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {langs.map((lang, i) => {
+              const done = i < active;
+              const running = i === active;
+              return (
+                <div key={lang} style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  padding: "10px 14px", borderRadius: 10,
+                  background: done ? "#f9f9f9" : running ? "#fafafa" : "white",
+                  border: running ? "1px solid #1a1a1a" : "1px solid #f0f0f0",
+                  transition: "all 400ms ease",
+                }}>
+                  <span style={{ fontSize: 18 }}>{lang.split(" ")[0]}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: done ? "#999" : "#1a1a1a" }}>{lang.split(" ")[1]}</span>
+                  {done && <span style={{ fontSize: 12, color: "#1a1a1a", fontWeight: 600 }}>✓</span>}
+                  {running && (
+                    <span style={{ display: "flex", gap: 3 }}>
+                      {[0, 1, 2].map(j => (
+                        <span key={j} style={{ width: 5, height: 5, borderRadius: "50%", background: "#1a1a1a", display: "inline-block", opacity: 0.3, animation: `dot 1s ease-in-out ${j * 200}ms infinite` }} />
+                      ))}
+                    </span>
+                  )}
+                  {!done && !running && <span style={{ fontSize: 12, color: "#ddd" }}>—</span>}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 10, background: "#f5f5f5", fontFamily: "monospace", fontSize: 12, color: "#666" }}>
+            42 produits · 156 variantes · WebP ✓ · IA ✓
+          </div>
+        </div>
+      </div>
+      <style>{`@keyframes dot{0%,100%{opacity:.2}50%{opacity:1}}`}</style>
+    </section>
+  );
+}
+
+function SocialProof() {
+  return (
+    <section style={{ background: "#1a1a1a", padding: "44px 40px" }}>
+      <div className="social-proof-row" style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 40 }}>
+        <div className="social-proof-logos" style={{ display: "flex", alignItems: "center", gap: 28, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, color: "#666", fontWeight: 700, letterSpacing: "1px" }}>COMPATIBLE AVEC</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img src="/logos/woocommerce.svg" alt="WooCommerce" style={{ height: 36, width: 36 }} />
+            <span style={{ fontSize: 19, color: "#9B5C8F", fontWeight: 700, letterSpacing: "-0.3px" }}>WooCommerce</span>
+          </div>
+          <div className="social-proof-divider" style={{ width: 1, height: 28, background: "#333" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 10, opacity: 0.45 }}>
+            <img src="/logos/shopify.svg" alt="Shopify" style={{ height: 32, width: 32 }} />
+            <span style={{ fontSize: 19, color: "#bbb", fontWeight: 700, letterSpacing: "-0.3px" }}>Shopify</span>
+            <span style={{ fontSize: 11, color: "#777", fontWeight: 500 }}>(bientôt)</span>
+          </div>
+        </div>
+
+        <div className="stat-row" style={{ display: "flex", gap: 32 }}>
+          {[["22", "langues EU"], ["10+", "marchés cibles"], ["100%", "IA"]].map(([val, label]) => (
+            <div key={label} style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 26, fontWeight: 900, color: "white", letterSpacing: "-0.5px" }}>{val}</div>
+              <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Features() {
+  return (
+    <section id="features" style={{ maxWidth: 1200, margin: "0 auto", padding: "clamp(5rem,10vw,9rem) 40px" }}>
+      <FadeIn style={{ textAlign: "center", marginBottom: 72 }}>
+        <div style={{ display: "inline-block", padding: "5px 14px", borderRadius: 999, background: "#f0f0f0", fontSize: 12, fontWeight: 700, color: "#666", letterSpacing: "0.8px", marginBottom: 20 }}>
+          FONCTIONNALITÉS
+        </div>
+        <h2 style={{ fontSize: "clamp(2rem,3.5vw,3rem)", fontWeight: 900, letterSpacing: "-1.5px", color: "#1a1a1a", margin: "0 0 16px" }}>
+          Ce que personne d'autre ne fait
+        </h2>
+        <p style={{ fontSize: 17, color: "#888", maxWidth: "52ch", margin: "0 auto", lineHeight: 1.6 }}>
+          Le même niveau de détail que les équipes internes des grandes marques — automatisé pour les indépendants.
+        </p>
+      </FadeIn>
+
+      {FEATURES.map((f, i) => (
+        <FadeIn key={i} delay={80} style={{ marginBottom: 64 }}>
+          <div className="feature-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center", direction: i % 2 === 0 ? "ltr" : "rtl" }}>
+            {/* Text */}
+            <div style={{ direction: "ltr" }}>
+              <div style={{ display: "inline-block", padding: "4px 12px", borderRadius: 999, background: "#f0f0f0", fontSize: 11, fontWeight: 700, color: "#888", letterSpacing: "0.8px", marginBottom: 16 }}>{f.tag}</div>
+              <h3 style={{ fontSize: "1.75rem", fontWeight: 800, letterSpacing: "-0.8px", color: "#1a1a1a", margin: "0 0 16px", lineHeight: 1.2 }}>{f.title}</h3>
+              <p style={{ fontSize: 16, color: "#777", lineHeight: 1.7, maxWidth: "48ch" }}>{f.desc}</p>
+            </div>
+
+            {/* Visual */}
+            <div style={{ direction: "ltr", background: "white", borderRadius: 16, padding: 24, border: "1px solid #e5e5e5", boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
+              {f.visual && !f.isVariant && (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {f.visual.map((item: any, j: number) => (
+                    <div key={j} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 8, background: j === 0 ? "#f9f9f9" : "white", border: "1px solid #f0f0f0" }}>
+                      <span style={{ fontSize: 18 }}>{item.lang}</span>
+                      <span style={{ fontSize: 13, color: j === 0 ? "#1a1a1a" : "#888", fontWeight: j === 0 ? 600 : 400 }}>{item.text}</span>
+                      {j === 0 && <span style={{ marginLeft: "auto", fontSize: 11, color: "#1a1a1a", fontWeight: 700, background: "#f0f0f0", padding: "2px 8px", borderRadius: 999 }}>SOURCE</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {f.isVariant && f.visual && (
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#999", letterSpacing: "0.8px", marginBottom: 14 }}>SÉLECTEUR DE VARIANTE</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    {f.visual.map((v: any, j: number) => (
+                      <div key={j} style={{ padding: "10px 12px", borderRadius: 8, border: j === 0 ? "2px solid #1a1a1a" : "1px solid #e5e5e5", background: j === 0 ? "#f9f9f9" : "white", display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 6, background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{v.img}</div>
+                        <span style={{ fontSize: 11, fontWeight: 500, color: "#444", lineHeight: 1.3 }}>{v.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 14, padding: "8px 12px", borderRadius: 8, background: "#f9f9f9", fontFamily: "monospace", fontSize: 11, color: "#888" }}>
+                    4 variantes · 4 images WebP · prix dédiés
+                  </div>
+                </div>
+              )}
+              {f.isFlow && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+                  <div style={{ padding: "12px 24px", borderRadius: 10, background: "#1a1a1a", color: "white", fontWeight: 700, fontSize: 14, width: "100%", textAlign: "center" }}>
+                    boutique-source.com (source)
+                  </div>
+                  <div style={{ fontSize: 20, color: "#ccc" }}>↓</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, width: "100%" }}>
+                    {["shop-fr", "shop-de", "shop-es", "shop-it", "shop-nl", "shop-pt"].map(shop => (
+                      <div key={shop} style={{ padding: "8px 12px", borderRadius: 8, background: "#f9f9f9", border: "1px solid #e5e5e5", fontSize: 12, fontWeight: 600, color: "#666", textAlign: "center" }}>
+                        {shop}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#bbb", marginTop: 4 }}>+ autant de boutiques cibles que nécessaire</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </FadeIn>
+      ))}
+    </section>
+  );
+}
+
+function Pricing() {
+  const [annual, setAnnual] = useState(false);
+
+  function ctaLabel(plan: typeof PLANS[0]) {
+    if (plan.type === "once") return `Commencer — ${plan.price.once}€`;
+    const monthly = plan.price.monthly ?? 0;
+    const displayed = annual ? Math.round(monthly * 0.8) : monthly;
+    return `Démarrer — ${displayed}€/mois`;
+  }
+
+  function ctaHref(plan: typeof PLANS[0]) {
+    const planId = plan.id.toUpperCase();
+    if (plan.type === "once") return `/signup?plan=${planId}`;
+    return `/signup?plan=${planId}&billing=${annual ? "annual" : "monthly"}`;
+  }
+
+  return (
+    <section id="pricing" style={{ background: "#fafafa", padding: "clamp(5rem,10vw,9rem) 40px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <FadeIn style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ display: "inline-block", padding: "5px 14px", borderRadius: 999, background: "#f0f0f0", fontSize: 12, fontWeight: 700, color: "#666", letterSpacing: "0.8px", marginBottom: 20 }}>
+            TARIFS
+          </div>
+          <h2 style={{ fontSize: "clamp(2rem,3.5vw,3rem)", fontWeight: 900, letterSpacing: "-1.5px", color: "#1a1a1a", margin: "0 0 16px" }}>
+            Du one-shot au business
+          </h2>
+          <p style={{ fontSize: 17, color: "#888", marginBottom: 32, maxWidth: "48ch", margin: "0 auto 32px" }}>
+            Commencez avec un paiement unique pour tester, scalez avec un abonnement.
+          </p>
+          <div style={{ display: "inline-flex", background: "#ebebeb", borderRadius: 999, padding: 4 }}>
+            {[{ label: "Mensuel", val: false }, { label: "Annuel  −20%", val: true }].map(({ label, val }) => (
+              <button key={label} onClick={() => setAnnual(val)} style={{
+                padding: "8px 20px", borderRadius: 999, border: annual === val ? "1.5px solid #1a1a1a" : "1.5px solid transparent", fontWeight: 700, fontSize: 14, cursor: "pointer",
+                background: annual === val ? "white" : "transparent",
+                color: annual === val ? "#1a1a1a" : "#787878",
+                boxShadow: annual === val ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
+                transition: "all 200ms",
+              }}>{label}</button>
+            ))}
+          </div>
+          {annual && (
+            <div style={{ fontSize: 12, color: "#aaa", marginTop: 10 }}>
+              Facturation annuelle (Growth) · Payé d'avance, non remboursable · Renouvellement automatique, annulable avant l'échéance.
+            </div>
+          )}
+        </FadeIn>
+
+        <FadeIn delay={40}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 48, padding: "12px 20px", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, color: "#9a3412", fontWeight: 600 }}>
+              Pas encore prêt ? Testez gratuitement avec <strong>5 produits</strong> — sans carte bancaire.
+            </span>
+            <Link href="/signup" style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", textDecoration: "underline" }}>
+              Commencer gratuitement →
+            </Link>
+          </div>
+        </FadeIn>
+
+        <div className="pricing-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
+          {PLANS.map((plan, i) => (
+            <FadeIn key={plan.id} delay={i * 80}>
+              <div style={{
+                background: "white", borderRadius: 20, padding: 32, position: "relative",
+                border: plan.popular ? "2px solid #1a1a1a" : "1px solid #e5e5e5",
+                boxShadow: plan.popular ? "0 12px 40px rgba(0,0,0,0.1)" : "0 2px 8px rgba(0,0,0,0.04)",
+                height: "100%", boxSizing: "border-box",
+              }}>
+                {plan.popular && (
+                  <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", padding: "5px 18px", borderRadius: 999, background: "#1a1a1a", color: "white", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
+                    Le plus populaire
+                  </div>
+                )}
+                <div style={{ fontWeight: 800, fontSize: 22, color: "#1a1a1a", marginBottom: 6 }}>{plan.name}</div>
+                <div style={{ fontSize: 13, color: "#999", marginBottom: 28, lineHeight: 1.5 }}>{plan.desc}</div>
+
+                <div style={{ marginBottom: 28 }}>
+                  {plan.type === "once" ? (
+                    <>
+                      <span style={{ fontSize: 44, fontWeight: 900, letterSpacing: "-2px", color: "#1a1a1a" }}>{plan.price.once}€</span>
+                      <span style={{ fontSize: 14, color: "#aaa", marginLeft: 8 }}>paiement unique</span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 44, fontWeight: 900, letterSpacing: "-2px", color: "#1a1a1a" }}>
+                        {annual ? Math.round((plan.price.monthly ?? 0) * 0.8) : plan.price.monthly}€
+                      </span>
+                      <span style={{ fontSize: 14, color: "#aaa", marginLeft: 8 }}>/mois</span>
+                      {annual && <div style={{ fontSize: 12, color: "#16a34a", fontWeight: 700, marginTop: 4 }}>Soit {Math.round((plan.price.monthly ?? 0) * 0.8 * 12)}€/an · −20%</div>}
+                    </>
+                  )}
+                </div>
+
+                <Link href={ctaHref(plan)} style={{
+                  width: "100%", padding: "13px", borderRadius: 10,
+                  border: plan.popular ? "none" : "1.5px solid #1a1a1a",
+                  background: plan.popular ? "#1a1a1a" : "white",
+                  color: plan.popular ? "white" : "#1a1a1a",
+                  fontWeight: 700, fontSize: 14, cursor: "pointer", marginBottom: 10,
+                  display: "block", textAlign: "center", textDecoration: "none", boxSizing: "border-box",
+                }}>
+                  {ctaLabel(plan)}
+                </Link>
+                <div style={{ fontSize: 12, color: "#bbb", textAlign: "center", marginBottom: 28 }}>{plan.note}</div>
+
+                <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 20, display: "grid", gap: 11 }}>
+                  {plan.features.map((f, j) => (
+                    <div key={j} style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13, color: f.ok ? "#333" : "#707070" }}>
+                      <span style={{ fontSize: 12, color: f.ok ? "#1a1a1a" : "#707070", flexShrink: 0, fontWeight: 700 }}>{f.ok ? "✓" : "✗"}</span>
+                      {f.text}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </FadeIn>
+          ))}
+        </div>
+
+        <FadeIn delay={160}>
+          <div id="contact" style={{ marginTop: 24, padding: "22px 28px", background: "white", borderRadius: 16, border: "1px solid #e5e5e5", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1a1a" }}>Enterprise / Sur mesure</div>
+              <div style={{ fontSize: 14, color: "#999", marginTop: 4 }}>Volume au-delà de 5 000 produits/mois · Intégrations custom · SLA garanti · Facturation annuelle</div>
+            </div>
+            <a href="mailto:contact@scaleyourshop.app" style={{ padding: "11px 24px", borderRadius: 10, border: "1.5px solid #1a1a1a", background: "white", fontWeight: 700, fontSize: 14, cursor: "pointer", whiteSpace: "nowrap", textDecoration: "none", color: "#1a1a1a" }}>
+              Nous contacter →
+            </a>
+          </div>
+        </FadeIn>
+      </div>
+    </section>
+  );
+}
+
+function FAQ() {
+  const [open, setOpen] = useState<number | null>(null);
+  return (
+    <section id="faq" style={{ maxWidth: 720, margin: "0 auto", padding: "clamp(5rem,10vw,9rem) 40px clamp(2.5rem,5vw,4rem)" }}>
+      <FadeIn style={{ textAlign: "center", marginBottom: 56 }}>
+        <div style={{ display: "inline-block", padding: "5px 14px", borderRadius: 999, background: "#f0f0f0", fontSize: 12, fontWeight: 700, color: "#666", letterSpacing: "0.8px", marginBottom: 20 }}>
+          FAQ
+        </div>
+        <h2 style={{ fontSize: "clamp(2rem,3.5vw,3rem)", fontWeight: 900, letterSpacing: "-1.5px", color: "#1a1a1a", margin: 0 }}>
+          Questions fréquentes
+        </h2>
+      </FadeIn>
+      <div style={{ display: "grid", gap: 10 }}>
+        {FAQS.map((faq, i) => (
+          <FadeIn key={i} delay={i * 50}>
+            <div style={{ background: "white", borderRadius: 12, border: "1px solid #e5e5e5", overflow: "hidden" }}>
+              <button onClick={() => setOpen(open === i ? null : i)} style={{
+                width: "100%", padding: "18px 22px", border: "none", background: "none",
+                textAlign: "left", fontWeight: 600, fontSize: 15, color: "#1a1a1a", cursor: "pointer",
+                display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
+              }}>
+                {faq.q}
+                <span style={{ fontSize: 22, color: "#ccc", transform: open === i ? "rotate(45deg)" : "none", transition: "0.2s", flexShrink: 0 }}>+</span>
+              </button>
+              {open === i && (
+                <div style={{ padding: "0 22px 18px", fontSize: 14, color: "#777", lineHeight: 1.7 }}>{faq.a}</div>
+              )}
+            </div>
+          </FadeIn>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CTA() {
+  return (
+    <section style={{ background: "#1a1a1a", padding: "clamp(3.5rem,8vw,6rem) 40px clamp(5rem,10vw,8rem)", textAlign: "center" }}>
+      <FadeIn>
+        <h2 style={{ fontSize: "clamp(2rem,4vw,3.2rem)", fontWeight: 900, letterSpacing: "-1.5px", color: "white", margin: "0 0 20px" }}>
+          Prêt à cloner votre boutique ?
+        </h2>
+        <p style={{ fontSize: 17, color: "#666", marginBottom: 44, maxWidth: "48ch", margin: "0 auto 44px" }}>
+          Connectez vos clés API et lancez votre premier transfert en moins de 5 minutes.
+        </p>
+        <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
+          <Link href="/signup" style={{ padding: "15px 40px", borderRadius: 999, border: "none", background: "white", color: "#1a1a1a", fontWeight: 800, fontSize: 16, cursor: "pointer", textDecoration: "none", display: "inline-block" }}>
+            Commencer gratuitement
+          </Link>
+          <a href="#features" style={{ padding: "15px 40px", borderRadius: 999, border: "2px solid #333", background: "transparent", color: "#666", fontWeight: 600, fontSize: 16, cursor: "pointer", textDecoration: "none", display: "inline-block" }}>
+            Découvrir les fonctionnalités
+          </a>
+        </div>
+        <p style={{ fontSize: 13, color: "#444", marginTop: 24 }}>Sans carte bancaire · Aperçu gratuit illimité</p>
+      </FadeIn>
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer style={{ background: "#111", padding: "28px 40px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <img src={LOGO_DATA_URI} alt="ScaleYourShop" style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover" }} />
+        <span style={{ fontWeight: 700, color: "#666", fontSize: 14 }}>Scale<span style={{ color: "#FA0C00" }}>Your</span>Shop</span>
+      </div>
+      <p style={{ fontSize: 12, color: "#444" }}>© 2026 ScaleYourShop · Tous droits réservés</p>
+      <div style={{ display: "flex", gap: 20 }}>
+        {[["Confidentialité", "/confidentialite"], ["CGU", "/cgu"]].map(([label, href]) => (
+          <a key={label} href={href} style={{ fontSize: 12, color: "#444", textDecoration: "none" }}>{label}</a>
+        ))}
+      </div>
+    </footer>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+export default function HomePage() {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const fn = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", fn);
+    return () => window.removeEventListener("scroll", fn);
+  }, []);
+
+  return (
+    <div style={{ minHeight: "100dvh", background: "#fafafa" }}>
+      <ResponsiveStyles />
+      <Nav scrolled={scrolled} />
+      <Hero />
+      <SocialProof />
+      <Features />
+      <Pricing />
+      <FAQ />
+      <CTA />
+      <Footer />
+    </div>
+  );
+}
